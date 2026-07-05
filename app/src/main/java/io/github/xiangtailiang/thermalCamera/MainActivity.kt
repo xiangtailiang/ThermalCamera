@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.PhotoCamera
@@ -80,6 +81,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -345,6 +347,7 @@ private fun ThermalCameraApp(
     var previewLocked by remember { mutableStateOf(false) }
     var enhancementPanelVisible by remember { mutableStateOf(false) }
     var thermometryPanelVisible by remember { mutableStateOf(false) }
+    var aboutPanelVisible by remember { mutableStateOf(false) }
     var restartPreviewAfterLayoutChange by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.previewing, state.loggedIn, state.recording) {
@@ -359,6 +362,7 @@ private fun ThermalCameraApp(
         if (fullScreenPreview) {
             enhancementPanelVisible = false
             thermometryPanelVisible = false
+            aboutPanelVisible = false
         }
     }
 
@@ -381,6 +385,10 @@ private fun ThermalCameraApp(
 
     BackHandler(enabled = thermometryPanelVisible && !fullScreenPreview) {
         thermometryPanelVisible = false
+    }
+
+    BackHandler(enabled = aboutPanelVisible && !fullScreenPreview) {
+        aboutPanelVisible = false
     }
 
     Surface(
@@ -441,13 +449,27 @@ private fun ThermalCameraApp(
                         onStopRecording = onStopRecording,
                         enhancementPanelVisible = enhancementPanelVisible,
                         thermometryPanelVisible = thermometryPanelVisible,
+                        aboutPanelVisible = aboutPanelVisible,
                         onToggleEnhancementPanel = {
                             enhancementPanelVisible = !enhancementPanelVisible
-                            if (enhancementPanelVisible) thermometryPanelVisible = false
+                            if (enhancementPanelVisible) {
+                                thermometryPanelVisible = false
+                                aboutPanelVisible = false
+                            }
                         },
                         onToggleThermometryPanel = {
                             thermometryPanelVisible = !thermometryPanelVisible
-                            if (thermometryPanelVisible) enhancementPanelVisible = false
+                            if (thermometryPanelVisible) {
+                                enhancementPanelVisible = false
+                                aboutPanelVisible = false
+                            }
+                        },
+                        onToggleAboutPanel = {
+                            aboutPanelVisible = !aboutPanelVisible
+                            if (aboutPanelVisible) {
+                                enhancementPanelVisible = false
+                                thermometryPanelVisible = false
+                            }
                         },
                     )
                     DeviceShelf(
@@ -481,6 +503,16 @@ private fun ThermalCameraApp(
                         onClose = { thermometryPanelVisible = false },
                         onRefresh = controller::refreshThermometryBasic,
                         onApply = controller::setThermometryBasic,
+                    )
+                }
+
+                if (aboutPanelVisible) {
+                    FloatingAboutPanel(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(12.dp),
+                        onClose = { aboutPanelVisible = false },
                     )
                 }
             }
@@ -963,8 +995,10 @@ private fun ActionDock(
     onStopRecording: () -> Unit,
     enhancementPanelVisible: Boolean,
     thermometryPanelVisible: Boolean,
+    aboutPanelVisible: Boolean,
     onToggleEnhancementPanel: () -> Unit,
     onToggleThermometryPanel: () -> Unit,
+    onToggleAboutPanel: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
@@ -1006,6 +1040,13 @@ private fun ActionDock(
                 onClick = if (state.recording) onStopRecording else onStartRecording,
             )
             IconToolButton(
+                icon = Icons.Filled.Info,
+                description = if (aboutPanelVisible) "收起关于" else "关于",
+                enabled = true,
+                activeColor = if (aboutPanelVisible) TealStrong else null,
+                onClick = onToggleAboutPanel,
+            )
+            IconToolButton(
                 icon = Icons.Filled.Settings,
                 description = if (thermometryPanelVisible) "收起测温显示" else "测温显示",
                 enabled = true,
@@ -1020,6 +1061,119 @@ private fun ActionDock(
                 onClick = onToggleEnhancementPanel,
             )
         }
+    }
+}
+
+@Composable
+private fun FloatingAboutPanel(
+    modifier: Modifier = Modifier,
+    onClose: () -> Unit,
+) {
+    val uriHandler = LocalUriHandler.current
+    val repoUrl = "https://github.com/xiangtailiang/ThermalCamera"
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = Color(0xF2141A1F),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, TealStrong.copy(alpha = 0.45f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = "关于",
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "4117 热成像 Android",
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                OutlinedButton(
+                    modifier = Modifier.height(34.dp),
+                    onClick = onClose,
+                    shape = RoundedCornerShape(999.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                    border = BorderStroke(1.dp, Line),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = PanelSoft,
+                        contentColor = TextPrimary,
+                    ),
+                ) {
+                    Text("收起", style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                }
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Panel,
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, Line),
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AboutInfoRow(label = "仓库", value = "xiangtailiang/ThermalCamera")
+                    AboutInfoRow(label = "地址", value = repoUrl)
+                    AboutInfoRow(label = "分支", value = "main")
+                    AboutInfoRow(label = "版本", value = "v1.0.1")
+                    ToolButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = "打开仓库",
+                        icon = Icons.Filled.Info,
+                        primary = true,
+                        enabled = true,
+                        onClick = { uriHandler.openUri(repoUrl) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AboutInfoRow(
+    label: String,
+    value: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            text = label,
+            color = TextSecondary,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.width(42.dp),
+        )
+        Text(
+            text = value,
+            color = TextPrimary,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
